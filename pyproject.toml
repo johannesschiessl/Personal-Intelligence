@@ -1,0 +1,9 @@
+[project]
+name = "personal-intelligence"
+version = "0.1.0"
+description = "A personal intelligence system based on AI agents."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Johannes Schießl", email = "contact.johannes@icloud.com" }]
+requires-python = ">=3.12"
+dependencies = []
