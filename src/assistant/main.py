@@ -5,6 +5,7 @@ from typing import List, Dict, Union
 from config import USER_NAME, ASSISTANT_NAME, ASSISTANT_MODEL, CUSTOM_INSTRUCTIONS
 from utils.datetime import get_current_date, get_current_time
 from assistant.tools.memory import Memory, MemoryMode
+from assistant.tools.tasks import Tasks, TaskMode
 
 class Assistant:
     def __init__(self):
@@ -13,6 +14,7 @@ class Assistant:
         self.history_file = Path("data/assistant/conversation_history.json")
         self.messages = self._load_conversation_history()
         self.memory = Memory()
+        self.tasks = Tasks()
 
         print("Assistant initialized")
 
@@ -50,6 +52,19 @@ memory(mode='w', id='user_birthday', content='April 15th')
 memory(mode='d', id='user_birthday')
 </example>
 </memory>
+
+<tasks>
+You have access to a tasks tool that allows you to schedule instructions for yourself:
+- To write a task: Use mode 'w' with a descriptive id, instructions, datetime (YYYY-MM-DD HH:MM:SS), and optional repeat setting
+- To read tasks: Use mode 'r' with an id to get details of a specific task
+- To delete a task: Use mode 'd' with the id of the task to delete
+<example>
+tasks(mode='w', id='daily_weather', instructions='Tell me the weather forecast for today', datetime='2024-01-01 08:00:00', repeat='daily')
+tasks(mode='r')
+tasks(mode='r', id='daily_weather')
+tasks(mode='d', id='daily_weather')
+</example>
+</tasks>
 </tools>
 
 <memories>
@@ -89,17 +104,62 @@ memory(mode='d', id='user_birthday')
                         "required": ["mode", "id"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "tasks",
+                    "description": "Schedule instructions for the assistant to execute at a specific time",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "mode": {
+                                "type": "string",
+                                "enum": ["r", "w", "d"],
+                                "description": "The mode of operation - 'r' for read, 'w' for write, 'd' for delete"
+                            },
+                            "id": {
+                                "type": "string",
+                                "description": "The unique identifier for the task"
+                            },
+                            "instructions": {
+                                "type": "string",
+                                "description": "The instructions to execute when the task is due (only required for write mode)"
+                            },
+                            "datetime": {
+                                "type": "string",
+                                "description": "The date and time when the task should be executed in format YYYY-MM-DD HH:MM:SS (only required for write mode)"
+                            },
+                            "repeat": {
+                                "type": "string",
+                                "enum": ["never", "daily", "weekly", "biweekly", "monthly", "yearly"],
+                                "description": "How often the task should repeat (optional, defaults to never)"
+                            }
+                        },
+                        "required": ["mode", "id"]
+                    }
+                }
             }
         ]
         return tools
 
     def _process_tool_call(self, tool_call) -> str:
+        args = json.loads(tool_call.function.arguments)
+        
         if tool_call.function.name == "memory":
-            args = json.loads(tool_call.function.arguments)
             mode = MemoryMode(args["mode"])
             memory_id = args["id"]
             content = args.get("content")
             return self.memory.process(mode, memory_id, content)
+        
+        elif tool_call.function.name == "tasks":
+            mode = TaskMode(args["mode"])
+            task_id = args["id"]
+            instructions = args.get("instructions")
+            task_datetime = args.get("datetime")
+            repeat = args.get("repeat")
+            return self.tasks.process(mode, task_id, instructions, task_datetime, repeat)
+        
         return "Unknown tool"
 
     def _get_context_messages(self) -> List[Dict[str, str]]:
@@ -164,7 +224,12 @@ memory(mode='d', id='user_birthday')
                 
                 if tool_callback:
                     import asyncio
-                    asyncio.create_task(tool_callback(tool_call.function.name))
+                    loop = asyncio.get_event_loop()
+                    notification_task = loop.create_task(tool_callback(tool_call.function.name))
+                    try:
+                        loop.run_until_complete(notification_task)
+                    except RuntimeError:
+                        pass
                 
                 tool_call_message = {
                     "role": "assistant",
@@ -208,3 +273,19 @@ memory(mode='d', id='user_birthday')
         self._save_conversation_history()
         print("Assistant:", final_message)
         return final_message
+
+    def process_due_tasks(self, message_callback=None, tool_callback=None) -> None:
+        """Process any tasks that are due for execution
+        
+        Args:
+            message_callback: Optional async function to call with the assistant's response
+            tool_callback: Optional async function to call when tools are used
+        """
+        due_tasks = self.tasks.get_due_tasks()
+        for task in due_tasks:
+            task_message = f"TASK {task['id']}: {task['instructions']}"
+            response = self.chat(task_message, tool_callback)
+            
+            if message_callback:
+                import asyncio
+                asyncio.create_task(message_callback(response))
