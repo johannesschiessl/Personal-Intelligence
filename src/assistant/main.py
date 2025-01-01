@@ -1,7 +1,7 @@
 import openai
 import json
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Union
 from config import USER_NAME, ASSISTANT_NAME, ASSISTANT_MODEL, CUSTOM_INSTRUCTIONS
 from utils.datetime import get_current_date, get_current_time
 
@@ -30,6 +30,7 @@ class Assistant:
         system_prompt = f"""<assistant_info>
 You are {ASSISTANT_NAME}, a personal assistant for {USER_NAME}.
 You are interacting with {USER_NAME} via Telegram. So keep your responses short and concise. And do not use markdown.
+You can see and analyze images that are sent to you.
 </assistant_info>
 
 <current_context>
@@ -48,12 +49,31 @@ Time: {get_current_time()}
         context.extend(self.messages[-50:] if len(self.messages) > 50 else self.messages)
         return context
     
-    def chat(self, message: str) -> str:
-        self.messages.append({"role": "user", "content": message})
-
-        print("User:", message)
+    def chat(self, message: Union[str, Dict]) -> str:
+        if isinstance(message, str):
+            user_message = {"role": "user", "content": message}
+            print("User:", message)
+        else:
+            user_message = {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": message.get("text", "What's in this image?")},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": message["image_url"],
+                            "detail": "high"
+                        }
+                    }
+                ]
+            }
+            print("User: [Image]", message.get("text", ""))
+        
+        self.messages.append({"role": "user", "content": str(user_message["content"])})
         
         context_messages = self._get_context_messages()
+        context_messages[-1] = user_message
+        
         response = self.client.chat.completions.create(
             model=self.model,
             messages=context_messages,
