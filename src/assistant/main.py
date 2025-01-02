@@ -7,6 +7,7 @@ from utils.datetime import get_current_date, get_current_time
 from assistant.tools.memory import Memory, MemoryMode
 from assistant.tools.tasks import Tasks, TaskMode
 from assistant.tools.calendar import Calendar
+from assistant.tools.url import Url
 
 class Assistant:
     def __init__(self):
@@ -17,6 +18,7 @@ class Assistant:
         self.memory = Memory()
         self.tasks = Tasks()
         self.calendar = Calendar()
+        self.url = Url()
 
         print("Assistant initialized")
 
@@ -77,6 +79,15 @@ calendar(mode='w', event_id='abc123', title='Updated Meeting', start_time='2024-
 calendar(mode='d', event_id='abc123')
 </example>
 </calendar>
+
+<url>
+You have access to a URL tool that allows you to fetch and parse content from web pages:
+- The tool will return the text content of the webpage, cleaned and formatted
+- The content is limited to 6000 characters to avoid token limits
+<example>
+url(url='https://example.com')
+</example>
+</url>
 </tools>
 
 <custom_instructions>
@@ -124,6 +135,23 @@ Time: {get_current_time()}
                             }
                         },
                         "required": ["mode", "id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "url",
+                    "description": "Fetch and parse content from a URL",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "url": {
+                                "type": "string",
+                                "description": "The URL to fetch content from"
+                            }
+                        },
+                        "required": ["url"]
                     }
                 }
             },
@@ -233,6 +261,10 @@ Time: {get_current_time()}
             start_time = args.get("start_time")
             end_time = args.get("end_time")
             return self.calendar.process(mode, range_val, event_id, title, description, start_time, end_time)
+        
+        elif tool_call.function.name == "url":
+            url = args["url"]
+            return self.url.process(url)
         
         return "Unknown tool"
 
