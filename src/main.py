@@ -1,7 +1,5 @@
-import os
 import sys
 import asyncio
-import signal
 from dotenv import load_dotenv
 from assistant.main import Assistant
 from interfaces.telegram.bot import TelegramBot
