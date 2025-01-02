@@ -2,10 +2,11 @@ import openai
 import json
 from pathlib import Path
 from typing import List, Dict, Union
-from config import USER_NAME, ASSISTANT_NAME, ASSISTANT_MODEL, CUSTOM_INSTRUCTIONS
+from config import USER_NAME, ASSISTANT_NAME, ASSISTANT_MODEL, CUSTOM_INSTRUCTIONS, TIME_ZONE
 from utils.datetime import get_current_date, get_current_time
 from assistant.tools.memory import Memory, MemoryMode
 from assistant.tools.tasks import Tasks, TaskMode
+from assistant.tools.calendar import Calendar
 
 class Assistant:
     def __init__(self):
@@ -15,6 +16,7 @@ class Assistant:
         self.messages = self._load_conversation_history()
         self.memory = Memory()
         self.tasks = Tasks()
+        self.calendar = Calendar()
 
         print("Assistant initialized")
 
@@ -34,13 +36,8 @@ class Assistant:
         system_prompt = f"""<assistant_info>
 You are {ASSISTANT_NAME}, a personal assistant for {USER_NAME}.
 You are interacting with {USER_NAME} via Telegram. So keep your responses short and concise. And do not use markdown.
-You can see and analyze images that are sent to you.
+You can see and analyze images that are sent to you. Interact with {USER_NAME} in a casual and friendly way. Help {USER_NAME} with what ever they need.
 </assistant_info>
-
-<current_context>
-Date: {get_current_date()}
-Time: {get_current_time()}
-</current_context>
 
 <tools>
 <memory>
@@ -65,15 +62,40 @@ tasks(mode='r', id='daily_weather')
 tasks(mode='d', id='daily_weather')
 </example>
 </tasks>
+
+<calendar>
+You have access to a calendar tool that allows you to interact with the user's Google Calendar:
+- To read events: Use mode 'r' with an optional range_val parameter (default 10, negative for past events)
+- To write/update events: Use mode 'w' with title, start_time, end_time (both in YYYY-MM-DD HH:MM:SS format), optional description, and optional event_id (for updates)
+- To delete events: Use mode 'd' with the event_id
+- All times are in {TIME_ZONE} timezone
+<example>
+calendar(mode='r', range_val=7)  # Show next 7 events
+calendar(mode='r', range_val=-5)  # Show 5 past events
+calendar(mode='w', title='Meeting', description='Team sync', start_time='2024-01-01 10:00:00', end_time='2024-01-01 11:00:00')
+calendar(mode='w', event_id='abc123', title='Updated Meeting', start_time='2024-01-01 11:00:00', end_time='2024-01-01 12:00:00')
+calendar(mode='d', event_id='abc123')
+</example>
+</calendar>
 </tools>
+
+<custom_instructions>
+{CUSTOM_INSTRUCTIONS}
+</custom_instructions>
 
 <memories>
 {self.memory.get_all_memories()}
 </memories>
 
-<custom_instructions>
-{CUSTOM_INSTRUCTIONS}
-</custom_instructions>
+<calendar_context>
+Last Event: {self.calendar.process(mode='r', range_val=-1)}
+Current/Next Events: {self.calendar.process(mode='r', range_val=5)}
+</calendar_context>
+
+<current_context>
+Date: {get_current_date()}
+Time: {get_current_time()}
+</current_context>
 """
         return system_prompt
     
@@ -139,6 +161,48 @@ tasks(mode='d', id='daily_weather')
                         "required": ["mode", "id"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "calendar",
+                    "description": "Interact with the user's Google Calendar to read, write, or delete events",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "mode": {
+                                "type": "string",
+                                "enum": ["r", "w", "d"],
+                                "description": "The mode of operation - 'r' for read, 'w' for write, 'd' for delete"
+                            },
+                            "range_val": {
+                                "type": "integer",
+                                "description": "For read mode: number of events to show (positive for future, negative for past, default 10)"
+                            },
+                            "event_id": {
+                                "type": "string",
+                                "description": "The event ID for updating or deleting events"
+                            },
+                            "title": {
+                                "type": "string",
+                                "description": "The title/summary of the event (required for write mode)"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Optional description of the event"
+                            },
+                            "start_time": {
+                                "type": "string",
+                                "description": "Start time of the event in YYYY-MM-DD HH:MM:SS format (required for write mode)"
+                            },
+                            "end_time": {
+                                "type": "string",
+                                "description": "End time of the event in YYYY-MM-DD HH:MM:SS format (required for write mode)"
+                            }
+                        },
+                        "required": ["mode"]
+                    }
+                }
             }
         ]
         return tools
@@ -159,6 +223,16 @@ tasks(mode='d', id='daily_weather')
             task_datetime = args.get("datetime")
             repeat = args.get("repeat")
             return self.tasks.process(mode, task_id, instructions, task_datetime, repeat)
+        
+        elif tool_call.function.name == "calendar":
+            mode = args["mode"]
+            range_val = args.get("range_val", 10)
+            event_id = args.get("event_id")
+            title = args.get("title")
+            description = args.get("description")
+            start_time = args.get("start_time")
+            end_time = args.get("end_time")
+            return self.calendar.process(mode, range_val, event_id, title, description, start_time, end_time)
         
         return "Unknown tool"
 
