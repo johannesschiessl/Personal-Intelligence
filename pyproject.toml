@@ -16,4 +16,5 @@ dependencies = [
     "pytz>=2024.1",
     "requests>=2.31.0",
     "beautifulsoup4>=4.12.3",
+    "docker>=7.0.0",
 ]
