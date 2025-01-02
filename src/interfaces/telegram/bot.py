@@ -38,7 +38,8 @@ class TelegramBot:
             "memory": "🧠",
             "tasks": "📝",
             "calendar": "📅",
-            "url": "🔗"
+            "url": "🔗",
+            "analysis": "💻"
         }
         emoji = tool_emojis.get(tool_name, "🛠️")
         message = f"{emoji} Using {tool_name.capitalize()}"
