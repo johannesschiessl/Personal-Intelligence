@@ -52,3 +52,11 @@ A personal intelligence system based on AI agents.
    ```bash
    python src/main.py
    ```
+
+## Contributing
+
+Feel free to contribute by creating issues. Suggestions for new features are always welcome!
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
