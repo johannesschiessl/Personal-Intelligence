@@ -9,6 +9,7 @@ A personal intelligence system based on AI agents.
 - A Telegram account and bot token
 - OpenAI API key
 - Google Calendar API credentials
+- Docker installed and running
 
 ### Setup Instructions
 
