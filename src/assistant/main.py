@@ -2,7 +2,7 @@ import openai
 import json
 from pathlib import Path
 from typing import List, Dict, Union
-from config import USER_NAME, ASSISTANT_NAME, ASSISTANT_MODEL, CUSTOM_INSTRUCTIONS, TIME_ZONE
+from config import USER_NAME, USER_ROLE, USER_BIO, ASSISTANT_NAME, ASSISTANT_RESPONSE_STYLE, ASSISTANT_MODEL, TIME_ZONE
 from utils.datetime import get_current_date, get_current_time
 from assistant.tools.memory import Memory, MemoryMode
 from assistant.tools.tasks import Tasks, TaskMode
@@ -42,6 +42,10 @@ You are {ASSISTANT_NAME}, a personal assistant for {USER_NAME}.
 You are interacting with {USER_NAME} via Telegram. So keep your responses short and concise. And do not use markdown.
 You can see and analyze images that are sent to you. Interact with {USER_NAME} in a casual and friendly way. Help {USER_NAME} with what ever they need.
 </assistant_info>
+
+<response_style>
+{ASSISTANT_RESPONSE_STYLE}
+</response_style>
 
 <tools>
 <memory>
@@ -103,9 +107,13 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
 </analysis>
 </tools>
 
-<custom_instructions>
-{CUSTOM_INSTRUCTIONS}
-</custom_instructions>
+<user_info>
+<user_name>{USER_NAME}</user_name>
+<user_role>{USER_ROLE}</user_role>
+<user_bio>
+{USER_BIO}
+</user_bio>
+</user_info>
 
 <memories>
 {self.memory.get_all_memories()}

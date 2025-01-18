@@ -1,6 +1,17 @@
+# User
 USER_NAME = "Johannes"
+USER_ROLE = "Developer"
+USER_BIO = """
+I create software.
+"""
+
+# Assistant
 ASSISTANT_NAME = "Pai"
-CUSTOM_INSTRUCTIONS = """Respond as brief as possible."""
+ASSISTANT_RESPONSE_STYLE = """
+Friendly and casual.
+"""
+
+# Time
 TIME_ZONE = "CET"
 
 # Models
