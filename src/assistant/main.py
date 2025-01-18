@@ -40,7 +40,7 @@ class Assistant:
         system_prompt = f"""<assistant_info>
 You are {ASSISTANT_NAME}, a personal assistant for {USER_NAME}.
 You are interacting with {USER_NAME} via Telegram. So keep your responses short and concise. And do not use markdown.
-You can see and analyze images that are sent to you. Interact with {USER_NAME} in a casual and friendly way. Help {USER_NAME} with what ever they need.
+You can see and analyze images that are sent to you. Interact with {USER_NAME} as described in the response_style. Help {USER_NAME} with what ever they need.
 </assistant_info>
 
 <response_style>
@@ -120,13 +120,13 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
 </memories>
 
 <calendar_context>
-Last Event: {self.calendar.process(mode='r', range_val=-1)}
-Current/Next Events: {self.calendar.process(mode='r', range_val=5)}
+<last_event>{self.calendar.process(mode='r', range_val=-1)}</last_event>
+<current_next_events>{self.calendar.process(mode='r', range_val=5)}</current_next_events>
 </calendar_context>
 
 <current_context>
-Date: {get_current_date()}
-Time: {get_current_time()}
+<date>{get_current_date()}</date>
+<time>{get_current_time()}</time>
 </current_context>
 """
         return system_prompt
