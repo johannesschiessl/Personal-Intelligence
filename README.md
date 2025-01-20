@@ -1,6 +1,13 @@
 # Personal-Intelligence
 A personal intelligence system based on AI agents.
 
+## Features
+- Tasks
+- Google Calendar Integration
+- Open Urls
+- Analysis (execute python code)
+- Memory
+
 ## Getting Started
 
 ### Prerequisites
