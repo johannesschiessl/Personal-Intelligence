@@ -176,3 +176,4 @@ cython_debug/
 # Personal Intelligence
 data/
 src/interfaces/telegram/chatid.py
+src/config.py
