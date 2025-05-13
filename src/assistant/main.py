@@ -274,22 +274,22 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
         return tools
 
     def _process_tool_call(self, tool_call) -> str:
-        args = json.loads(tool_call.function.arguments)
+        args = json.loads(tool_call.arguments)
         
-        if tool_call.function.name == "memory":
+        if tool_call.name == "memory":
             mode = MemoryMode(args["mode"])
             memory_id = args["id"]
             content = args.get("content")
             return self.memory.process(mode, memory_id, content)
         
-        elif tool_call.function.name == "analysis":
+        elif tool_call.name == "analysis":
             code = args["code"]
             result = self.analysis.process(code)
             if result["success"]:
                 return result["output"]
             return f"Error: {result['error']}"
         
-        elif tool_call.function.name == "tasks":
+        elif tool_call.name == "tasks":
             mode = TaskMode(args["mode"])
             task_id = args["id"]
             instructions = args.get("instructions")
@@ -297,7 +297,7 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
             repeat = args.get("repeat")
             return self.tasks.process(mode, task_id, instructions, task_datetime, repeat)
         
-        elif tool_call.function.name == "calendar":
+        elif tool_call.name == "calendar":
             mode = args["mode"]
             range_val = args.get("range_val", 10)
             event_id = args.get("event_id")
@@ -307,16 +307,15 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
             end_time = args.get("end_time")
             return self.calendar.process(mode, range_val, event_id, title, description, start_time, end_time)
         
-        elif tool_call.function.name == "url":
+        elif tool_call.name == "url":
             url = args["url"]
             return self.url.process(url)
         
         return "Unknown tool"
 
-    def _get_context_messages(self) -> List[Dict[str, str]]:
-        context = [{"role": "system", "content": self._get_system_prompt()}]
-        context.extend(self.messages[-50:] if len(self.messages) > 50 else self.messages)
-        return context
+    def _get_conversation_messages(self) -> List[Dict[str, str]]:
+        # Returns only user and assistant messages for the 'input' parameter
+        return self.messages[-50:] if len(self.messages) > 50 else self.messages
     
     def chat(self, message: Union[str, Dict], tool_callback=None) -> str:
         if isinstance(message, str):
@@ -340,90 +339,128 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
         
         self.messages.append({"role": "user", "content": str(user_message["content"])})
         
-        context_messages = self._get_context_messages()
-        context_messages[-1] = user_message
+        conversation_messages = self._get_conversation_messages()
+        # The user_message itself is already appended to self.messages,
+        # so it will be included in conversation_messages.
+        # No need to replace the last element specifically.
+
+        system_prompt = self._get_system_prompt()
         
         tool_call_count = 0
         max_tool_calls = 10
         
+        current_conversation_input = list(conversation_messages) # Make a mutable copy
+
         while tool_call_count < max_tool_calls:
-            response = self.client.chat.completions.create(
+            response = self.client.responses.create(
                 model=self.model,
-                messages=context_messages,
+                instructions=system_prompt,
+                input=current_conversation_input,
                 tools=self._get_tools()
             )
             
-            message = response.choices[0].message
+            assistant_response_text = None
+            tool_calls_found = []
+
+            if response.output:
+                for output_item in response.output:
+                    if output_item.type == "message" and output_item.content and output_item.content[0].type == "output_text":
+                        assistant_response_text = response.output_text # Use convenience accessor
+                        break 
+                    elif output_item.type == "function_call":
+                        tool_calls_found.append(output_item)
             
-            if not message.tool_calls:
-                assistant_message = {"role": "assistant", "content": message.content}
-                self.messages.append(assistant_message)
+            if not tool_calls_found and assistant_response_text is not None:
+                assistant_message_content = assistant_response_text
+                assistant_message_for_history = {"role": "assistant", "content": assistant_message_content}
+                self.messages.append(assistant_message_for_history)
                 self._save_conversation_history()
-                print("Assistant:", message.content)
-                return message.content
+                print("Assistant:", assistant_message_content)
+                return assistant_message_content
             
-            tool_call_count += 1
+            if not tool_calls_found: # No tool calls and no text response, implies an issue or empty response
+                # This case should ideally not happen if the API behaves as expected
+                # and provides either text or tool_calls.
+                # If it does, we might need to force a final response.
+                print("Assistant: No tool calls or text response from API.")
+                break # Exit loop to generate final response
+
+            tool_call_count += len(tool_calls_found) # Increment by number of tools called in this turn
             
-            if tool_call_count == max_tool_calls:
-                context_messages.append({
-                    "role": "system",
+            if tool_call_count >= max_tool_calls: # Check if total tool calls reached limit
+                current_conversation_input.append({
+                    "role": "developer", # Using developer role for system-like messages to the model
                     "content": "You have reached the maximum number of consecutive tool calls. Please summarize your progress and provide a final response to the user."
                 })
             
-            for tool_call in message.tool_calls:
-                print("Assistant: Using", tool_call.function.name, tool_call.function.arguments)
+            for tool_call in tool_calls_found:
+                print("Assistant: Using", tool_call.name, tool_call.arguments)
                 
                 if tool_callback:
                     import asyncio
-                    loop = asyncio.get_event_loop()
-                    notification_task = loop.create_task(tool_callback(tool_call.function.name))
                     try:
-                        loop.run_until_complete(notification_task)
+                        loop = asyncio.get_running_loop()
                     except RuntimeError:
-                        pass
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                    
+                    # Schedule the callback without blocking
+                    asyncio.create_task(tool_callback(tool_call.name))
+
+                # Append the model's decision to call the tool
+                # The Responses API uses 'function_call' type in the output,
+                # and we need to construct an equivalent message for the *next* API call's input.
+                # The 'assistant' message with 'tool_calls' is the Chat Completions format.
+                # For Responses API, we append the 'function_call' output directly,
+                # and then the 'function_call_output'.
                 
-                tool_call_message = {
-                    "role": "assistant",
-                    "content": None,
-                    "tool_call_id": tool_call.id,
-                    "tool_calls": [
-                        {
-                            "id": tool_call.id,
-                            "type": "function",
-                            "function": {
-                                "name": tool_call.function.name,
-                                "arguments": tool_call.function.arguments
-                            }
-                        }
-                    ]
+                # This is the model's "request" to call a function
+                model_function_call_message = {
+                    "type": "function_call", # Matches the type from response.output
+                    "id": tool_call.id,      # From the specific function_call item
+                    "call_id": tool_call.call_id, # call_id is also present
+                    "name": tool_call.name,
+                    "arguments": tool_call.arguments
                 }
-                self.messages.append(tool_call_message)
-                
-                result = self._process_tool_call(tool_call)
+                # self.messages is for long-term history, format might need to be consistent
+                # For now, let's adapt it to what the next call to `responses.create` might expect
+                # based on the documentation for "Supplying model with results"
+                # The documentation shows appending the raw tool_call object.
+                self.messages.append(model_function_call_message) # Storing the raw tool call
+                current_conversation_input.append(model_function_call_message)
+
+
+                result = self._process_tool_call(tool_call) # tool_call here is the object from response.output
                 print("[Tool call result]:", result)
                 
-                tool_result_message = {
-                    "role": "tool",
-                    "content": result,
-                    "tool_call_id": tool_call.id
+                # This is the result of our execution of the function
+                function_output_message = {
+                    "type": "function_call_output", # Correct type for the Responses API
+                    "call_id": tool_call.call_id,   # Use call_id to link to the function_call
+                    "output": str(result)           # Output must be a string
                 }
-                self.messages.append(tool_result_message)
-                
-                context_messages.append(tool_call_message)
-                context_messages.append(tool_result_message)
+                self.messages.append(function_output_message)
+                current_conversation_input.append(function_output_message)
                 
                 self._save_conversation_history()
         
-        response = self.client.chat.completions.create(
+        # If loop finishes (e.g. max_tool_calls reached or no tool calls and no text)
+        # Make a final call to get a text response
+        final_response = self.client.responses.create(
             model=self.model,
-            messages=context_messages
+            instructions=system_prompt,
+            input=current_conversation_input # Use the latest state of conversation_input
+            # No tools needed for the final summarization ideally
         )
         
-        final_message = response.choices[0].message.content
-        self.messages.append({"role": "assistant", "content": final_message})
+        final_message_text = "Sorry, I reached a limit in processing your request. Please try again." # Default
+        if final_response.output and final_response.output[0].type == "message" and final_response.output[0].content[0].type == "output_text":
+            final_message_text = final_response.output_text
+
+        self.messages.append({"role": "assistant", "content": final_message_text})
         self._save_conversation_history()
-        print("Assistant:", final_message)
-        return final_message
+        print("Assistant:", final_message_text)
+        return final_message_text
 
     def process_due_tasks(self, message_callback=None, tool_callback=None) -> None:
         """Process any tasks that are due for execution
