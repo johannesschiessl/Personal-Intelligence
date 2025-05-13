@@ -28,7 +28,7 @@ class TelegramBot:
             f"Your chat ID is: {chat_id}\n\n"
             f"To make the assistant always respond to this chat:\n"
             f"1. Copy this number: {chat_id}\n"
-            f"2. Set USER_CHAT_ID in src/config.py to this number\n"
+            f"2. Set USER_CHAT_ID in src/interfaces/telegram/chatid.py to this number\n"
             f"3. Restart the assistant"
         )
     
