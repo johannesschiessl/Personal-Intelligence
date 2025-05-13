@@ -93,7 +93,7 @@ calendar(mode='d', event_id='abc123')
 <url>
 You have access to a URL tool that allows you to fetch and parse content from web pages:
 - The tool will return the text content of the webpage, cleaned and formatted
-- The content is limited to 6000 characters to avoid token limits
+- The content is limited to 10000 characters to avoid token limits
 <example>
 url(url='https://example.com')
 </example>

@@ -35,7 +35,7 @@ class Url:
             
             text = ' '.join(chunk for chunk in chunks if chunk)
             
-            return text[:6000]
+            return text[:10000]
             
         except Exception as e:
             return f"Error fetching URL: {str(e)}"
