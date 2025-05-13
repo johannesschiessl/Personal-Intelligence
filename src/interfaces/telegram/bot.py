@@ -1,4 +1,5 @@
 import os
+from config import ASSISTANT_NAME
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from typing import Optional, Set
@@ -19,7 +20,7 @@ class TelegramBot:
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.message.chat_id not in self.chat_ids:
             self.chat_ids.add(update.message.chat_id)
-        await update.message.reply_text("Hello! I'm your personal AI assistant. How can I help you today? Type /chatid to get your chat ID.")
+        await update.message.reply_text(f"Hello! I'm {ASSISTANT_NAME}, your personal AI assistant. How can I help you today? Type /chatid to get your chat ID.")
     
     async def chatid_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Command to get one's chat ID"""
