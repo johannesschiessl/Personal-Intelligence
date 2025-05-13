@@ -1,4 +1,4 @@
-from config import USER_CITY, USER_COUNTRY, USER_NAME, USER_REGION, USER_ROLE, USER_BIO, ASSISTANT_NAME, ASSISTANT_RESPONSE_STYLE, TIME_ZONE
+from config import NOTION_DATABASES, USER_CITY, USER_COUNTRY, USER_NAME, USER_REGION, USER_ROLE, USER_BIO, ASSISTANT_NAME, ASSISTANT_RESPONSE_STYLE, TIME_ZONE
 from utils.datetime import get_current_date, get_current_time
 
 system_prompt = f"""
@@ -41,7 +41,7 @@ You are {ASSISTANT_NAME}, the proactive and highly capable personal assistant fo
 - Fetch URL content: url(url='https://example.com')
 
 ## Notion
-Available databases: {", ".join(self.notion.databases.keys())}
+Available databases: {", ".join(NOTION_DATABASES)}
 - List databases: notion(mode='list_databases')
 - Create new page:
   notion(mode="create_page", page_title="", database_name="", properties_json="", content_blocks_json="")

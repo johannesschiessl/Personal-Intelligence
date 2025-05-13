@@ -2,7 +2,6 @@ import json
 from notion_client import Client
 from notion_client.errors import APIResponseError
 
-
 class Notion:
     def __init__(self, api_token: str, databases: dict = None):
         if not api_token:
@@ -260,6 +259,6 @@ class Notion:
         return json.dumps(result, ensure_ascii=False, indent=2)
 
     def __del__(self):
-        if hasattr(self, 'client') and self.client and not self.client.is_closed:
+        if hasattr(self, 'client') and self.client:
             self.client.close() 
             
