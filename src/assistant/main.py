@@ -135,139 +135,114 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
         tools = [
             {
                 "type": "function",
-                "function": {
-                    "name": "memory",
-                    "description": "Store or delete memories that persist across conversations",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "mode": {
-                                "type": "string",
-                                "enum": ["w", "d"],
-                                "description": "The mode of operation - 'w' for write, 'd' for delete"
-                            },
-                            "id": {
-                                "type": "string",
-                                "description": "The unique identifier for the memory"
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "The content to store (only required for write mode)"
-                            }
+                "name": "memory",
+                "description": "Store or delete memories that persist across conversations",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "enum": ["w", "d"],
+                            "description": "The mode of operation - 'w' for write, 'd' for delete"
                         },
-                        "required": ["mode", "id"]
-                    }
+                        "id": {
+                            "type": "string",
+                            "description": "The unique identifier for the memory"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "The content to store (only required for write mode)"
+                        }
+                    },
+                    "required": ["mode", "id"]
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "analysis",
-                    "description": "Execute Python code safely in an isolated Docker container",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "code": {
-                                "type": "string",
-                                "description": "The Python code to execute"
-                            }
-                        },
-                        "required": ["code"]
-                    }
+                "name": "url",
+                "description": "Fetch and parse content from a URL",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "The URL to fetch content from"
+                        }
+                    },
+                    "required": ["url"]
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "url",
-                    "description": "Fetch and parse content from a URL",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "url": {
-                                "type": "string",
-                                "description": "The URL to fetch content from"
-                            }
+                "name": "tasks",
+                "description": "Schedule instructions for the assistant to execute at a specific time",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "enum": ["r", "w", "d"],
+                            "description": "The mode of operation - 'r' for read, 'w' for write, 'd' for delete"
                         },
-                        "required": ["url"]
-                    }
+                        "id": {
+                            "type": "string",
+                            "description": "The unique identifier for the task"
+                        },
+                        "instructions": {
+                            "type": "string",
+                            "description": "The instructions to execute when the task is due (only required for write mode)"
+                        },
+                        "datetime": {
+                            "type": "string",
+                            "description": "The date and time when the task should be executed in format YYYY-MM-DD HH:MM:SS (only required for write mode)"
+                        },
+                        "repeat": {
+                            "type": "string",
+                            "enum": ["never", "daily", "weekly", "biweekly", "monthly", "yearly"],
+                            "description": "How often the task should repeat (optional, defaults to never)"
+                        }
+                    },
+                    "required": ["mode", "id"]
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "tasks",
-                    "description": "Schedule instructions for the assistant to execute at a specific time",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "mode": {
-                                "type": "string",
-                                "enum": ["r", "w", "d"],
-                                "description": "The mode of operation - 'r' for read, 'w' for write, 'd' for delete"
-                            },
-                            "id": {
-                                "type": "string",
-                                "description": "The unique identifier for the task"
-                            },
-                            "instructions": {
-                                "type": "string",
-                                "description": "The instructions to execute when the task is due (only required for write mode)"
-                            },
-                            "datetime": {
-                                "type": "string",
-                                "description": "The date and time when the task should be executed in format YYYY-MM-DD HH:MM:SS (only required for write mode)"
-                            },
-                            "repeat": {
-                                "type": "string",
-                                "enum": ["never", "daily", "weekly", "biweekly", "monthly", "yearly"],
-                                "description": "How often the task should repeat (optional, defaults to never)"
-                            }
+                "name": "calendar",
+                "description": "Interact with the user's Google Calendar to read, write, or delete events",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "enum": ["r", "w", "d"],
+                            "description": "The mode of operation - 'r' for read, 'w' for write, 'd' for delete"
                         },
-                        "required": ["mode", "id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "calendar",
-                    "description": "Interact with the user's Google Calendar to read, write, or delete events",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "mode": {
-                                "type": "string",
-                                "enum": ["r", "w", "d"],
-                                "description": "The mode of operation - 'r' for read, 'w' for write, 'd' for delete"
-                            },
-                            "range_val": {
-                                "type": "integer",
-                                "description": "For read mode: number of events to show (positive for future, negative for past, default 10)"
-                            },
-                            "event_id": {
-                                "type": "string",
-                                "description": "The event ID for updating or deleting events"
-                            },
-                            "title": {
-                                "type": "string",
-                                "description": "The title/summary of the event (required for write mode)"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Optional description of the event"
-                            },
-                            "start_time": {
-                                "type": "string",
-                                "description": "Start time of the event in YYYY-MM-DD HH:MM:SS format (required for write mode)"
-                            },
-                            "end_time": {
-                                "type": "string",
-                                "description": "End time of the event in YYYY-MM-DD HH:MM:SS format (required for write mode)"
-                            }
+                        "range_val": {
+                            "type": "integer",
+                            "description": "For read mode: number of events to show (positive for future, negative for past, default 10)"
                         },
-                        "required": ["mode"]
-                    }
+                        "event_id": {
+                            "type": "string",
+                            "description": "The event ID for updating or deleting events"
+                        },
+                        "title": {
+                            "type": "string",
+                            "description": "The title/summary of the event (required for write mode)"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Optional description of the event"
+                        },
+                        "start_time": {
+                            "type": "string",
+                            "description": "Start time of the event in YYYY-MM-DD HH:MM:SS format (required for write mode)"
+                        },
+                        "end_time": {
+                            "type": "string",
+                            "description": "End time of the event in YYYY-MM-DD HH:MM:SS format (required for write mode)"
+                        }
+                    },
+                    "required": ["mode"]
                 }
             }
         ]
