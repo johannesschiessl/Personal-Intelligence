@@ -48,6 +48,10 @@ You can see and analyze images that are sent to you. Interact with {USER_NAME} a
 </response_style>
 
 <tools>
+<web_search>
+You have access to a web search tool that allows you to search the web.
+</web_search>
+
 <memory>
 You have access to a memory tool that allows you to store, update and delete information:
 - To write a memory: Use mode 'w' with a descriptive id and the content to store, using mode w on an existing memory will overwrite its content
@@ -133,6 +137,16 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
     
     def _get_tools(self) -> List[Dict]:
         tools = [
+            {
+                "type": "web_search_preview",
+                "search_context_size": "low",
+                "user_location": {
+                    "type": "approximate",
+                    "country": USER_COUNTRY,
+                    "city": USER_CITY,
+                    "region": USER_REGION,
+                },
+            },
             {
                 "type": "function",
                 "name": "memory",
