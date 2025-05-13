@@ -4,6 +4,9 @@ USER_ROLE = "Developer"
 USER_BIO = """
 I create software.
 """
+USER_COUNTRY = "DE"
+USER_CITY = "Somewhere"
+USER_REGION = "Somewhere"
 
 # Assistant
 ASSISTANT_NAME = "Pai"
