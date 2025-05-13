@@ -7,15 +7,17 @@ A personal intelligence system based on AI agents.
 - Open Urls
 - Analysis (execute python code)
 - Memory
+- Notion Integration
 
 ## Getting Started
 
 ### Prerequisites
-- Python 3.12 or higher
+- Python 3.12 or higher and uv
 - Git
 - A Telegram account and bot token
 - OpenAI API key
 - Google Calendar API credentials
+- Notion Integration
 - Docker installed and running
 
 ### Setup Instructions
@@ -26,39 +28,33 @@ A personal intelligence system based on AI agents.
    cd Personal-Intelligence
    ```
 
-2. Set up Python environment:
+2. Set up Python environment and install dependencies:
    ```bash
-   # Create a virtual environment
-   python -m venv .venv
-   
-   # Activate the virtual environment
-   # On Windows:
-   .venv\Scripts\activate
-   # On macOS/Linux:
-   source .venv/bin/activate
+   uv sync
    ```
 
-3. Install dependencies:
-   ```bash
-   pip install -e .
+3. Rename the `.env.example` file to `.env` and set the following variables:
+   ```
+   OPENAI_API_KEY=your_openai_api_key # Get this from https://platform.openai.com/api-keys
+   TELEGRAM_TOKEN=your_telegram_bot_token # Get this from https://t.me/BotFather
+   NOTION_API_TOKEN=your_notion_api_token # Get this from https://www.notion.so/profile/integrations
    ```
 
-4. Rename the `.env.example` file to `.env` and set the following variables:
-   ```
-   OPENAI_API_KEY=your_openai_api_key
-   TELEGRAM_TOKEN=your_telegram_bot_token
-   ```
-
-5. Set up Google Calendar integration:
+4. Set up Google Calendar integration:
    - Go to the Google Cloud Console
    - Create a new project
    - Enable the Google Calendar API
    - Create OAuth 2.0 credentials
    - Download the credentials and save them as `data/calendar/credentials.json`
 
+5. Set up config.py:
+   - Copy `config-example.py` to `config.py`
+   - Fill in the required fields
+
 6. Start the application:
+   Make sure docker is running and then run:
    ```bash
-   python src/main.py
+   uv run src/main.py
    ```
 
 ## Contributing
