@@ -2,7 +2,7 @@ import openai
 import json
 from pathlib import Path
 from typing import List, Dict, Union
-from config import USER_NAME, USER_ROLE, USER_BIO, ASSISTANT_NAME, ASSISTANT_RESPONSE_STYLE, ASSISTANT_MODEL, TIME_ZONE
+from config import USER_CITY, USER_COUNTRY, USER_NAME, USER_REGION, USER_ROLE, USER_BIO, ASSISTANT_NAME, ASSISTANT_RESPONSE_STYLE, ASSISTANT_MODEL, TIME_ZONE
 from utils.datetime import get_current_date, get_current_time
 from assistant.tools.memory import Memory, MemoryMode
 from assistant.tools.tasks import Tasks, TaskMode
