@@ -304,7 +304,7 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
 
     def _get_conversation_messages(self) -> List[Dict[str, str]]:
         # Returns only user and assistant messages for the 'input' parameter
-        return self.messages[-50:] if len(self.messages) > 50 else self.messages
+        return self.messages[-200:] if len(self.messages) > 200 else self.messages
     
     def chat(self, message: Union[str, Dict], tool_callback=None) -> str:
         if isinstance(message, str):
