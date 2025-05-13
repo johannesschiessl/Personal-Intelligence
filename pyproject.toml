@@ -17,4 +17,6 @@ dependencies = [
     "requests>=2.31.0",
     "beautifulsoup4>=4.12.3",
     "docker>=7.0.0",
+    "notion-client>=2.3.0",
+    "dotenv>=0.9.9",
 ]

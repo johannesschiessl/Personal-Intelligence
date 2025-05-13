@@ -2,12 +2,13 @@ import openai
 import json
 from pathlib import Path
 from typing import List, Dict, Union
-from config import USER_CITY, USER_COUNTRY, USER_NAME, USER_REGION, USER_ROLE, USER_BIO, ASSISTANT_NAME, ASSISTANT_RESPONSE_STYLE, ASSISTANT_MODEL, TIME_ZONE
+from config import USER_CITY, USER_COUNTRY, USER_NAME, USER_REGION, USER_ROLE, USER_BIO, ASSISTANT_NAME, ASSISTANT_RESPONSE_STYLE, ASSISTANT_MODEL, TIME_ZONE, NOTION_API_TOKEN, NOTION_DATABASES
 from utils.datetime import get_current_date, get_current_time
 from assistant.tools.memory import Memory, MemoryMode
 from assistant.tools.tasks import Tasks, TaskMode
 from assistant.tools.calendar import Calendar
 from assistant.tools.url import Url
+from assistant.tools.notion import Notion
 
 class Assistant:
     def __init__(self):
@@ -19,6 +20,7 @@ class Assistant:
         self.tasks = Tasks()
         self.calendar = Calendar()
         self.url = Url()
+        self.notion = Notion(api_token=NOTION_API_TOKEN, databases=NOTION_DATABASES)
 
         print("Assistant initialized")
 
@@ -80,8 +82,8 @@ You have access to a calendar tool that allows you to interact with the user's G
 - To delete events: Use mode 'd' with the event_id
 - All times are in {TIME_ZONE} timezone
 <example>
-calendar(mode='r', range_val=7)  # Show next 7 events
-calendar(mode='r', range_val=-5)  # Show 5 past events
+calendar(mode='r', range_val=7)
+calendar(mode='r', range_val=-5)
 calendar(mode='w', title='Meeting', description='Team sync', start_time='2024-01-01 10:00:00', end_time='2024-01-01 11:00:00')
 calendar(mode='w', event_id='abc123', title='Updated Meeting', start_time='2024-01-01 11:00:00', end_time='2024-01-01 12:00:00')
 calendar(mode='d', event_id='abc123')
@@ -97,6 +99,87 @@ url(url='https://example.com')
 </example>
 </url>
 
+<notion>
+You have access to a Notion tool to interact with your Notion workspace.
+- All complex parameters like 'properties_json', 'content_blocks_json', 'filter_json', 'sorts_json' MUST be valid JSON strings. Escape quotes within the JSON string properly (e.g., use \\" for quotes inside the string that forms the JSON, and use ''' for multi-line JSON strings if needed by the calling syntax).
+
+Available Databases: {", ".join(self.notion.databases.keys())}
+
+Operations:
+- To list available databases: Use mode 'list_databases'.
+  Example: notion(mode='list_databases')
+
+- To create a new page: Use mode 'create_page'.
+  Required: 'page_title' (string) and one of the parent options:
+    'database_name' (string): Creates page in this named database. 'properties_json' can be used for database-specific fields.
+    'parent_database_id' (string): Creates page in this database by ID. 'properties_json' can be used for database-specific fields.
+    'parent_page_id' (string): Creates page as a child of this page. 'properties_json' is ignored (only title property applies).
+  Optional: 'content_blocks_json' (JSON string for initial page content blocks).
+  Example (in database by name):
+  notion(
+    mode="create_page",
+    page_title="New Task",
+    database_name="tasks",
+    properties_json='''{{
+      "Status": {{"select": {{"name": "To Do"}}}}
+    }}'''
+  )
+  Example (child of page): notion(mode='create_page', page_title='Sub-page Note', parent_page_id='YOUR_PARENT_PAGE_ID')
+
+- To search/query a database: Use mode 'query_db'.
+  Required (provide one):
+    'database_name' (string): Name of the database to query
+    'database_id' (string): ID of the database to query
+  Optional: 'filter_json' (Notion API filter object as a JSON string), 'sorts_json' (Notion API sorts array as a JSON string).
+  Example:
+  notion(
+    mode="query_db",
+    database_name="tasks",
+    filter_json='''{{
+      "property": "Status",
+      "select": {{"equals": "In Progress"}}
+    }}'''
+  )
+
+- To add content (blocks) to an existing page: Use mode 'add_page_content'.
+  Required: 'page_id' (string), 'content_blocks_json' (JSON string of Notion block objects).
+  Example:
+  notion(
+    mode='add_page_content',
+    page_id='YOUR_PAGE_ID',
+    content_blocks_json='''[
+      {{
+        "object": "block",
+        "type": "to_do",
+        "to_do": {{
+          "rich_text": [
+            {{
+              "type": "text",
+              "text": {{"content": "Additional to-do item"}}
+            }}
+          ]
+        }}
+      }}
+    ]'''
+  )
+
+- To retrieve the content (blocks) of a page: Use mode 'get_page_content'.
+  Required: 'page_id' (string).
+  Example:
+  notion(mode='get_page_content', page_id='YOUR_PAGE_ID')
+
+- To update properties of an existing page: Use mode 'update_page_props'.
+  Required: 'page_id' (string), 'properties_json' (JSON string of properties to update. Only applicable if page is in a database).
+  Example:
+  notion(
+    mode='update_page_props',
+    page_id='YOUR_PAGE_ID',
+    properties_json='''{{
+      "Status": {{"select": {{"name": "Done"}}}}
+    }}'''
+  )
+</notion>
+
 </tools>
 
 <user_info>
@@ -105,6 +188,9 @@ url(url='https://example.com')
 <user_bio>
 {USER_BIO}
 </user_bio>
+<user_location>
+{USER_CITY}, {USER_REGION}, {USER_COUNTRY}
+</user_location>
 </user_info>
 
 <memories>
@@ -246,6 +332,32 @@ url(url='https://example.com')
                     },
                     "required": ["mode"]
                 }
+            },
+            { 
+                "type": "function",
+                "name": "notion",
+                "description": "Interact with your Notion workspace to create/query pages and databases, and manage content.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "enum": ["list_databases", "create_page", "query_db", "add_page_content", "get_page_content", "update_page_props"],
+                            "description": "The Notion operation to perform."
+                        },
+                        "database_name": {"type": "string", "description": "Name of the database to use (for 'create_page' or 'query_db'). Available databases shown in system prompt."},
+                        "page_title": {"type": "string", "description": "Title of the page (required for 'create_page')."},
+                        "parent_database_id": {"type": "string", "description": "ID of the parent database (for 'create_page' if parent is a database and database_name is not provided)."},
+                        "parent_page_id": {"type": "string", "description": "ID of the parent page (for 'create_page' if parent is another page)."},
+                        "database_id": {"type": "string", "description": "ID of the Notion database (for 'query_db' if database_name is not provided)."},
+                        "page_id": {"type": "string", "description": "ID of the Notion page (for 'add_page_content', 'get_page_content', 'update_page_props')."},
+                        "properties_json": {"type": "string", "description": "JSON string for page properties. For 'create_page' in a database or for 'update_page_props'."},
+                        "content_blocks_json": {"type": "string", "description": "JSON string of Notion block objects. For 'create_page' or 'add_page_content'."},
+                        "filter_json": {"type": "string", "description": "JSON string for Notion API filter object when querying a database."},
+                        "sorts_json": {"type": "string", "description": "JSON string for Notion API sorts array when querying a database."}
+                    },
+                    "required": ["mode"] 
+                }
             }
         ]
         return tools
@@ -258,8 +370,6 @@ url(url='https://example.com')
             memory_id = args["id"]
             content = args.get("content")
             return self.memory.process(mode, memory_id, content)
-     
-        
         elif tool_call.name == "tasks":
             mode = TaskMode(args["mode"])
             task_id = args["id"]
@@ -267,7 +377,6 @@ url(url='https://example.com')
             task_datetime = args.get("datetime")
             repeat = args.get("repeat")
             return self.tasks.process(mode, task_id, instructions, task_datetime, repeat)
-        
         elif tool_call.name == "calendar":
             mode = args["mode"]
             range_val = args.get("range_val", 10)
@@ -277,15 +386,16 @@ url(url='https://example.com')
             start_time = args.get("start_time")
             end_time = args.get("end_time")
             return self.calendar.process(mode, range_val, event_id, title, description, start_time, end_time)
-        
         elif tool_call.name == "url":
             url = args["url"]
             return self.url.process(url)
+        elif tool_call.name == "notion": 
+            mode = args.pop("mode") 
+            return self.notion.process(mode=mode, **args)
         
         return "Unknown tool"
 
     def _get_conversation_messages(self) -> List[Dict[str, str]]:
-        # Returns only user and assistant messages for the 'input' parameter
         return self.messages[-200:] if len(self.messages) > 200 else self.messages
     
     def chat(self, message: Union[str, Dict], tool_callback=None) -> str:
@@ -311,16 +421,12 @@ url(url='https://example.com')
         self.messages.append({"role": "user", "content": str(user_message["content"])})
         
         conversation_messages = self._get_conversation_messages()
-        # The user_message itself is already appended to self.messages,
-        # so it will be included in conversation_messages.
-        # No need to replace the last element specifically.
-
         system_prompt = self._get_system_prompt()
         
         tool_call_count = 0
         max_tool_calls = 10
         
-        current_conversation_input = list(conversation_messages) # Make a mutable copy
+        current_conversation_input = list(conversation_messages) 
 
         while tool_call_count < max_tool_calls:
             response = self.client.responses.create(
@@ -336,7 +442,7 @@ url(url='https://example.com')
             if response.output:
                 for output_item in response.output:
                     if output_item.type == "message" and output_item.content and output_item.content[0].type == "output_text":
-                        assistant_response_text = response.output_text # Use convenience accessor
+                        assistant_response_text = response.output_text 
                         break 
                     elif output_item.type == "function_call":
                         tool_calls_found.append(output_item)
@@ -349,18 +455,15 @@ url(url='https://example.com')
                 print("Assistant:", assistant_message_content)
                 return assistant_message_content
             
-            if not tool_calls_found: # No tool calls and no text response, implies an issue or empty response
-                # This case should ideally not happen if the API behaves as expected
-                # and provides either text or tool_calls.
-                # If it does, we might need to force a final response.
+            if not tool_calls_found: 
                 print("Assistant: No tool calls or text response from API.")
-                break # Exit loop to generate final response
+                break 
 
-            tool_call_count += len(tool_calls_found) # Increment by number of tools called in this turn
+            tool_call_count += len(tool_calls_found) 
             
-            if tool_call_count >= max_tool_calls: # Check if total tool calls reached limit
+            if tool_call_count >= max_tool_calls: 
                 current_conversation_input.append({
-                    "role": "developer", # Using developer role for system-like messages to the model
+                    "role": "developer", 
                     "content": "You have reached the maximum number of consecutive tool calls. Please summarize your progress and provide a final response to the user."
                 })
             
@@ -375,56 +478,38 @@ url(url='https://example.com')
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                     
-                    # Schedule the callback without blocking
                     asyncio.create_task(tool_callback(tool_call.name))
-
-                # Append the model's decision to call the tool
-                # The Responses API uses 'function_call' type in the output,
-                # and we need to construct an equivalent message for the *next* API call's input.
-                # The 'assistant' message with 'tool_calls' is the Chat Completions format.
-                # For Responses API, we append the 'function_call' output directly,
-                # and then the 'function_call_output'.
                 
-                # This is the model's "request" to call a function
                 model_function_call_message = {
-                    "type": "function_call", # Matches the type from response.output
-                    "id": tool_call.id,      # From the specific function_call item
-                    "call_id": tool_call.call_id, # call_id is also present
+                    "type": "function_call", 
+                    "id": tool_call.id,      
+                    "call_id": tool_call.call_id, 
                     "name": tool_call.name,
                     "arguments": tool_call.arguments
                 }
-                # self.messages is for long-term history, format might need to be consistent
-                # For now, let's adapt it to what the next call to `responses.create` might expect
-                # based on the documentation for "Supplying model with results"
-                # The documentation shows appending the raw tool_call object.
-                self.messages.append(model_function_call_message) # Storing the raw tool call
+                self.messages.append(model_function_call_message) 
                 current_conversation_input.append(model_function_call_message)
 
-
-                result = self._process_tool_call(tool_call) # tool_call here is the object from response.output
+                result = self._process_tool_call(tool_call) 
                 print("[Tool call result]:", result)
                 
-                # This is the result of our execution of the function
                 function_output_message = {
-                    "type": "function_call_output", # Correct type for the Responses API
-                    "call_id": tool_call.call_id,   # Use call_id to link to the function_call
-                    "output": str(result)           # Output must be a string
+                    "type": "function_call_output", 
+                    "call_id": tool_call.call_id,   
+                    "output": str(result)           
                 }
                 self.messages.append(function_output_message)
                 current_conversation_input.append(function_output_message)
                 
                 self._save_conversation_history()
         
-        # If loop finishes (e.g. max_tool_calls reached or no tool calls and no text)
-        # Make a final call to get a text response
         final_response = self.client.responses.create(
             model=self.model,
             instructions=system_prompt,
-            input=current_conversation_input # Use the latest state of conversation_input
-            # No tools needed for the final summarization ideally
+            input=current_conversation_input 
         )
         
-        final_message_text = "Sorry, I reached a limit in processing your request. Please try again." # Default
+        final_message_text = "Sorry, I reached a limit in processing your request. Please try again." 
         if final_response.output and final_response.output[0].type == "message" and final_response.output[0].content[0].type == "output_text":
             final_message_text = final_response.output_text
 
