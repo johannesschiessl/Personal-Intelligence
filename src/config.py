@@ -18,4 +18,4 @@ Friendly and casual.
 TIME_ZONE = "CET"
 
 # Models
-ASSISTANT_MODEL = "gpt-4o" # Must be an OpenAI model
+ASSISTANT_MODEL = "gpt-4.1" # Must be an OpenAI model
