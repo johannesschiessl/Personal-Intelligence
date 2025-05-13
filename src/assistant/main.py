@@ -8,7 +8,6 @@ from assistant.tools.memory import Memory, MemoryMode
 from assistant.tools.tasks import Tasks, TaskMode
 from assistant.tools.calendar import Calendar
 from assistant.tools.url import Url
-from assistant.tools.analysis import Analysis
 
 class Assistant:
     def __init__(self):
@@ -20,7 +19,6 @@ class Assistant:
         self.tasks = Tasks()
         self.calendar = Calendar()
         self.url = Url()
-        self.analysis = Analysis()
 
         print("Assistant initialized")
 
@@ -99,16 +97,6 @@ url(url='https://example.com')
 </example>
 </url>
 
-<analysis>
-You have access to a code execution tool that allows you to execute Python code safely in an isolated Docker container:
-- The tool will return the output of the code execution
-- You need to use print to return values of variables, as just writing them at the end of the code will not work.
-- The container is limited to 512MB of memory and 50% of one CPU. And does not have internet access. It's is stateless between tool calls. It has a timeout of 10 seconds.
-<example>
-analysis(code='print("Hello, world!")')
-analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
-</example>
-</analysis>
 </tools>
 
 <user_info>
@@ -270,13 +258,7 @@ analysis(code='result = 23 - 400 + 100 - 12 + 2300\\nprint(result)')
             memory_id = args["id"]
             content = args.get("content")
             return self.memory.process(mode, memory_id, content)
-        
-        elif tool_call.name == "analysis":
-            code = args["code"]
-            result = self.analysis.process(code)
-            if result["success"]:
-                return result["output"]
-            return f"Error: {result['error']}"
+     
         
         elif tool_call.name == "tasks":
             mode = TaskMode(args["mode"])
